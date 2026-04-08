@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../screens/maintenance_history_screen.dart';
 
 class VehicleCard extends StatelessWidget {
+  final String vehicleId;
   final String title;
   final String subId;
   final String vehicleType;
@@ -12,6 +13,7 @@ class VehicleCard extends StatelessWidget {
 
   const VehicleCard({
     super.key,
+    this.vehicleId = '',
     required this.title,
     required this.subId,
     required this.vehicleType,
@@ -120,7 +122,9 @@ class VehicleCard extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const MaintenanceHistoryScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => MaintenanceHistoryScreen(vehicleId: vehicleId),
+                      ),
                     );
                   },
                   isPrimary: false,

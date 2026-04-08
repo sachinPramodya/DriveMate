@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'login_screen.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,15 +12,33 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final AuthService _authService = AuthService();
+
   @override
   void initState() {
     super.initState();
-    // Transition to LoginScreen after 3 seconds
-    Timer(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    });
+    Timer(const Duration(seconds: 3), () => _checkAuthState());
+  }
+
+  Future<void> _checkAuthState() async {
+    final user = _authService.currentUser;
+    if (user != null) {
+      try {
+        final userData = await _authService.getUserData(user.uid);
+        if (!mounted) return;
+        if (userData.userType == 'service_provider') {
+          Navigator.of(context).pushReplacementNamed('/service-provider');
+        } else {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } catch (_) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    } else {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   @override

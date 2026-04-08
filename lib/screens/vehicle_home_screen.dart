@@ -2,18 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/summary_card.dart';
 import '../widgets/vehicle_card.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
+import '../models/user_model.dart';
+import '../models/vehicle_model.dart';
 import 'add_vehicle_screen.dart';
 import 'notification_screen.dart';
 import 'profile_screen.dart';
 
-class VehicleHomeScreen extends StatelessWidget {
+class VehicleHomeScreen extends StatefulWidget {
   const VehicleHomeScreen({super.key});
+
+  @override
+  State<VehicleHomeScreen> createState() => _VehicleHomeScreenState();
+}
+
+class _VehicleHomeScreenState extends State<VehicleHomeScreen> {
+  final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+  UserModel? _user;
+  List<VehicleModel> _vehicles = [];
+  int _serviceCount = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) return;
+
+    // Load user and vehicles independently
+    final userFuture = _authService.getUserData(uid).catchError((_) => null);
+    final vehiclesFuture = _firestoreService.getVehiclesForOwnerOnce(uid).catchError((_) => <VehicleModel>[]);
+
+    final results = await Future.wait([userFuture, vehiclesFuture]);
+
+    final user = results[0] as UserModel?;
+    final vehicles = results[1] as List<VehicleModel>;
+    final vehicleIds = vehicles.map((v) => v.id).toList();
+
+    int serviceCount = 0;
+    if (vehicleIds.isNotEmpty) {
+      try {
+        serviceCount = await _firestoreService.getServiceRecordCountForVehicles(vehicleIds);
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _user = user;
+      _vehicles = vehicles;
+      _serviceCount = serviceCount;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         child: Column(
           children: [
             // Top Section with Profile and Header
@@ -46,14 +100,16 @@ class VehicleHomeScreen extends StatelessWidget {
                               color: Colors.white70,
                             ),
                           ),
-                          Text(
-                            'My Vehicle',
-                            style: GoogleFonts.inter(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
+                                    Text(
+                        _user?.fullName ?? 'My Vehicle',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                         ],
                       ),
                       const Spacer(),
@@ -81,20 +137,20 @@ class VehicleHomeScreen extends StatelessWidget {
                   const SizedBox(height: 30),
                   
                   // Summary Cards
-                  const Row(
+                  Row(
                     children: [
                       Expanded(
                         child: SummaryCard(
                           title: 'Total Vehicle',
-                          count: '5',
+                          count: '${_vehicles.length}',
                           icon: Icons.directions_car_outlined,
                         ),
                       ),
-                      SizedBox(width: 16),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: SummaryCard(
                           title: 'Services',
-                          count: '8',
+                          count: '$_serviceCount',
                           icon: Icons.build_outlined,
                         ),
                       ),
@@ -115,19 +171,34 @@ class VehicleHomeScreen extends StatelessWidget {
             const SizedBox(height: 32),
             
             // List Title (Optional section header)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 children: [
-                  VehicleCard(
-                    title: '2020 Toyota CAM-2020-001',
-                    subId: 'CAM-2020-001',
-                    vehicleType: 'Sedan',
-                    lastServiceDate: '12-12-2024',
-                    nextServiceStatus: 'Overdue',
-                    isOverdue: true,
-                  ),
-                  SizedBox(height: 100), // Reserve space for FAB/scrolling
+                  if (_vehicles.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 40),
+                      child: Text(
+                        'No vehicles yet. Add your first vehicle!',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: Colors.black38,
+                        ),
+                      ),
+                    )
+                  else
+                    ..._vehicles.map((vehicle) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: VehicleCard(
+                        vehicleId: vehicle.id,
+                        title: vehicle.displayName,
+                        subId: vehicle.modelNumber,
+                        vehicleType: vehicle.vehicleType,
+                        lastServiceDate: '-',
+                        nextServiceStatus: '-',
+                      ),
+                    )),
+                  const SizedBox(height: 100), // Reserve space for FAB/scrolling
                 ],
               ),
             ),
@@ -140,11 +211,12 @@ class VehicleHomeScreen extends StatelessWidget {
 
   Widget _buildAddNewVehicleButton(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const AddVehicleScreen()),
         );
+        if (result == true) _loadData();
       },
       child: Container(
         width: double.infinity,
@@ -181,11 +253,12 @@ class VehicleHomeScreen extends StatelessWidget {
 
   Widget _buildFAB(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const AddVehicleScreen()),
         );
+        if (result == true) _loadData();
       },
       child: Container(
         height: 56,

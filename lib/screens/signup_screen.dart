@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/custom_text_field.dart';
-import 'service_provider_screen.dart';
-import 'vehicle_home_screen.dart';
+import '../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,6 +12,68 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   bool isVehicleOwner = true;
+  bool _isLoading = false;
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final AuthService _authService = AuthService();
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignUp() async {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+      _showError('Please fill in all fields');
+      return;
+    }
+    if (password != confirmPassword) {
+      _showError('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      _showError('Password must be at least 6 characters');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final userType = isVehicleOwner ? 'vehicle_owner' : 'service_provider';
+      await _authService.signUp(
+        fullName: fullName,
+        email: email,
+        password: password,
+        userType: userType,
+      );
+      if (!mounted) return;
+      if (isVehicleOwner) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/service-provider');
+      }
+    } catch (e) {
+      _showError(e.toString().replaceAll('Exception: ', '').replaceAll(RegExp(r'\[.*?\]'), '').trim());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,26 +123,30 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 40),
 
               // Form Fields
-              const CustomTextField(
+              CustomTextField(
                 hintText: 'Full Name',
                 icon: Icons.person_outline,
+                controller: _fullNameController,
               ),
               const SizedBox(height: 16),
-              const CustomTextField(
+              CustomTextField(
                 hintText: 'Email',
                 icon: Icons.email_outlined,
+                controller: _emailController,
               ),
               const SizedBox(height: 16),
-              const CustomTextField(
+              CustomTextField(
                 hintText: 'Password',
                 icon: Icons.lock_outline,
                 isPassword: true,
+                controller: _passwordController,
               ),
               const SizedBox(height: 16),
-              const CustomTextField(
+              CustomTextField(
                 hintText: 'Confirm Password',
                 icon: Icons.lock_outline,
                 isPassword: true,
+                controller: _confirmPasswordController,
               ),
               const SizedBox(height: 32),
 
@@ -205,17 +270,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildSignUpButton(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (isVehicleOwner) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const VehicleHomeScreen()),
-          );
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ServiceProviderScreen()),
-          );
-        }
-      },
+      onTap: _isLoading ? null : _handleSignUp,
       child: Container(
         width: double.infinity,
         height: 60,
@@ -232,14 +287,23 @@ class _SignupScreenState extends State<SignupScreen> {
           border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
         ),
         child: Center(
-          child: Text(
-            'Sign up',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E3A8A),
-            ),
-          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF1E3A8A),
+                    strokeWidth: 2,
+                  ),
+                )
+              : Text(
+                  'Sign up',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E3A8A),
+                  ),
+                ),
         ),
       ),
     );
