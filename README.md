@@ -1,16 +1,34 @@
-# drivemate
+# DriveMate
 
-A new Flutter project.
+A Flutter project for Vehicle Maintenance Tracking.
 
-## Getting Started
+## How to Run the Project
 
-This project is a starting point for a Flutter application.
+### 1. Check Connected Devices
+Ensure your mobile device is connected or an emulator is running.
+```bash
+flutter devices
+```
 
-A few resources to get you started if this is your first Flutter project:
+### 2. Run on Mobile (Physical or Emulator)
+To run the app on your connected device (e.g., your Samsung SM A176B):
+```bash
+flutter run -d R5CYA16LNRY
+```
+*If you have multiple devices, replace `R5CYA16LNRY` with your target device ID.*
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 3. Run on Web
+To run the app in your browser:
+```bash
+flutter run -d chrome
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Development Features
+
+- **Hot Reload**: While the app is running, press `r` in the terminal to quickly see code changes.
+- **Hot Restart**: Press `R` in the terminal to restart the app and reset state.
+
+## Assets
+- Car logo: `assets/images/car.png`
+- Fonts: `Inter` (via `google_fonts` package)
+
