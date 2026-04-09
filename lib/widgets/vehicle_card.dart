@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../screens/maintenance_history_screen.dart';
+import '../screens/add_vehicle_screen.dart';
+import '../services/firestore_service.dart';
 
 class VehicleCard extends StatelessWidget {
   final String vehicleId;
@@ -136,7 +138,22 @@ class VehicleCard extends StatelessWidget {
                   context,
                   'Details',
                   Icons.info_outline,
-                  onTap: () {},
+                  onTap: () async {
+                    // Fetch full vehicle details and navigate
+                    final firestoreService = FirestoreService();
+                    final vehicle = await firestoreService.getVehicleById(vehicleId);
+                    if (vehicle != null && context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AddVehicleScreen(
+                            vehicle: vehicle,
+                            isReadOnly: true,
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   isPrimary: true,
                 ),
               ),

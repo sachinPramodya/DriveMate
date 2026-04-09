@@ -24,6 +24,27 @@ class MaintenanceHistoryScreen extends StatefulWidget {
 class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
+  String? _userType;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserType();
+  }
+
+  Future<void> _loadUserType() async {
+    try {
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        final user = await _authService.getUserData(uid);
+        if (mounted) {
+          setState(() => _userType = user.userType);
+        }
+      }
+    } catch (_) {
+      // Silently fail if user data cannot be loaded
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +106,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                 );
               },
             ),
-      floatingActionButton: widget.vehicleId.isNotEmpty ? _buildFAB() : null,
+      floatingActionButton: widget.vehicleId.isNotEmpty && _userType == 'service_provider' ? _buildFAB() : null,
     );
   }
 

@@ -6,7 +6,14 @@ import '../services/firestore_service.dart';
 import '../models/vehicle_model.dart';
 
 class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+  final VehicleModel? vehicle; // For view/edit mode
+  final bool isReadOnly; // For read-only view
+
+  const AddVehicleScreen({
+    super.key,
+    this.vehicle,
+    this.isReadOnly = false,
+  });
 
   @override
   State<AddVehicleScreen> createState() => _AddVehicleScreenState();
@@ -24,6 +31,20 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   final List<String> _vehicleTypes = ['Sedan', 'SUV', 'Truck', 'Van', 'Motorcycle', 'Hatchback', 'Coupe'];
+
+  @override
+  void initState() {
+    super.initState();
+    // Populate fields if viewing/editing existing vehicle
+    if (widget.vehicle != null) {
+      _modelNumberController.text = widget.vehicle!.modelNumber;
+      _brandController.text = widget.vehicle!.brand;
+      _yearController.text = widget.vehicle!.year;
+      _mileageController.text = widget.vehicle!.mileage;
+      _avgDailyMileageController.text = widget.vehicle!.averageDailyMileage;
+      _vehicleType = widget.vehicle!.vehicleType;
+    }
+  }
 
   @override
   void dispose() {
@@ -79,7 +100,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Add Vehicle',
+          widget.isReadOnly ? 'Vehicle Details' : 'Add Vehicle',
           style: GoogleFonts.inter(
             fontSize: 20,
             color: Colors.black,
@@ -106,13 +127,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               const SizedBox(height: 32),
               
               CustomTextField(
-                hintText: 'Model Number*',
+                hintText: 'Vehicle Number*',
                 icon: Icons.description_outlined,
                 controller: _modelNumberController,
+                enabled: !widget.isReadOnly,
               ),
               const SizedBox(height: 4),
               Text(
-                'Model Number is the primary Identifier',
+                'Vehicle Number is the primary Identifier',
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   color: Colors.black38,
@@ -147,7 +169,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     value: type,
                     child: Text(type),
                   )).toList(),
-                  onChanged: (value) => setState(() => _vehicleType = value ?? ''),
+                  onChanged: widget.isReadOnly ? null : (value) => setState(() => _vehicleType = value ?? ''),
                 ),
               ),
               const SizedBox(height: 24),
@@ -156,6 +178,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 hintText: 'Brand',
                 icon: Icons.directions_car_outlined,
                 controller: _brandController,
+                enabled: !widget.isReadOnly,
               ),
               const SizedBox(height: 24),
               
@@ -164,6 +187,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 icon: Icons.calendar_today_outlined,
                 controller: _yearController,
                 keyboardType: TextInputType.number,
+                enabled: !widget.isReadOnly,
               ),
               const SizedBox(height: 24),
               
@@ -172,6 +196,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 icon: Icons.speed_outlined,
                 controller: _mileageController,
                 keyboardType: TextInputType.number,
+                enabled: !widget.isReadOnly,
               ),
               const SizedBox(height: 24),
               
@@ -180,6 +205,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 icon: Icons.trending_up_outlined,
                 controller: _avgDailyMileageController,
                 keyboardType: TextInputType.number,
+                enabled: !widget.isReadOnly,
               ),
               const SizedBox(height: 4),
               Text(
@@ -191,7 +217,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               ),
               const SizedBox(height: 48),
               
-              _buildSaveButton(context),
+              if (!widget.isReadOnly) _buildSaveButton(context),
               const SizedBox(height: 40),
             ],
           ),
