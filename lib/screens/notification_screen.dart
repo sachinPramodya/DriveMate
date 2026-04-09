@@ -16,19 +16,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
 
-  @override
-  void initState() {
-    super.initState();
-    // Refresh notifications on screen open
-    final uid = _authService.currentUser?.uid;
-    if (uid != null) {
-      _firestoreService.checkAndGenerateNotifications(uid);
-    }
-  }
-
   Future<void> _dismissNotification(String notificationId) async {
     try {
-      await _firestoreService.deleteNotification(notificationId);
+      await _firestoreService.dismissNotification(notificationId);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -80,6 +80,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
+    Future<void> _notifications() async {
+    Navigator.of(context).pushNamedAndRemoveUntil('/notifications', (route) => false);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,10 +222,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Settings Card
             _buildSectionCard(
               children: [
-                _buildSettingRow(
-                  Icons.notifications_none_rounded,
-                  'Notifications',
-                  subtitle: 'Service reminders and alerts',
+                GestureDetector(
+                 onTap: _notifications,
+                  child: _buildSettingRow(
+                    Icons.notifications_none_rounded,
+                    'Notifications',
+                    subtitle: 'Service reminders and alerts',
+                  ),
                 ),
                 const Divider(height: 24),
                 GestureDetector(

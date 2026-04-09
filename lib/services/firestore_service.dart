@@ -196,6 +196,7 @@ class FirestoreService {
     return _firestore
         .collection('notifications')
         .where('userId', isEqualTo: userId)
+        .where('isDismissed', isEqualTo: false)
         .snapshots()
         .map((snap) {
           final list = snap.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList();
@@ -204,27 +205,47 @@ class FirestoreService {
         });
   }
 
-  Future<void> deleteNotification(String notificationId) async {
-    await _firestore.collection('notifications').doc(notificationId).delete();
+  Future<void> dismissNotification(String notificationId) async {
+    await _firestore.collection('notifications').doc(notificationId).update({
+      'isDismissed': true,
+    });
   }
 
-  /// Remove existing notifications for a vehicle and regenerate based on nextServiceDate
+  /// Generate notifications for a vehicle based on nextServiceDate.
+  /// Skips if a notification (active or dismissed) already exists for this vehicle+date combo.
+  /// Only called from service record creation (with force=true to replace old ones)
+  /// or from periodic checks (force=false to respect dismissed state).
   Future<void> regenerateNotificationsForVehicle({
     required String vehicleId,
     required String ownerId,
     required String vehicleName,
     required String nextServiceDate,
+    bool force = false,
   }) async {
-    // Delete old notifications for this vehicle
+    if (nextServiceDate.isEmpty || nextServiceDate.length != 8) return;
+
+    // Check if a notification already exists for this vehicle + nextServiceDate
     final existing = await _firestore
         .collection('notifications')
         .where('vehicleId', isEqualTo: vehicleId)
+        .where('nextServiceDate', isEqualTo: nextServiceDate)
         .get();
-    for (final doc in existing.docs) {
-      await doc.reference.delete();
+
+    if (!force && existing.docs.isNotEmpty) {
+      // A notification (active or dismissed) already exists for this date — skip
+      return;
     }
 
-    if (nextServiceDate.isEmpty || nextServiceDate.length != 8) return;
+    if (force) {
+      // When a new service record is added, clean up old notifications for this vehicle
+      final old = await _firestore
+          .collection('notifications')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .get();
+      for (final doc in old.docs) {
+        await doc.reference.delete();
+      }
+    }
 
     final nextDate = DateTime.tryParse(
       '${nextServiceDate.substring(0, 4)}-${nextServiceDate.substring(4, 6)}-${nextServiceDate.substring(6, 8)}',

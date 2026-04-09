@@ -9,6 +9,7 @@ class NotificationModel {
   final String title;
   final String message;
   final String nextServiceDate; // YYYYMMDD
+  final bool isDismissed;
   final DateTime? createdAt;
 
   NotificationModel({
@@ -20,6 +21,7 @@ class NotificationModel {
     required this.title,
     required this.message,
     this.nextServiceDate = '',
+    this.isDismissed = false,
     this.createdAt,
   });
 
@@ -34,6 +36,7 @@ class NotificationModel {
       title: data['title'] ?? '',
       message: data['message'] ?? '',
       nextServiceDate: data['nextServiceDate'] ?? '',
+      isDismissed: data['isDismissed'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -47,6 +50,7 @@ class NotificationModel {
       'title': title,
       'message': message,
       'nextServiceDate': nextServiceDate,
+      'isDismissed': isDismissed,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

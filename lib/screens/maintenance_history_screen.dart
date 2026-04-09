@@ -326,6 +326,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                                       ownerId: vehicle.ownerId,
                                       vehicleName: vehicle.displayName,
                                       nextServiceDate: nextServiceDate,
+                                      force: true,
                                     );
                                   }
                                 }
