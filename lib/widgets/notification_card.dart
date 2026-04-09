@@ -8,6 +8,7 @@ class NotificationCard extends StatelessWidget {
   final String title;
   final String message;
   final String date;
+  final VoidCallback? onDismiss;
 
   const NotificationCard({
     super.key,
@@ -15,6 +16,7 @@ class NotificationCard extends StatelessWidget {
     required this.title,
     required this.message,
     required this.date,
+    this.onDismiss,
   });
 
   @override
@@ -90,6 +92,16 @@ class NotificationCard extends StatelessWidget {
               ],
             ),
           ),
+
+          // Dismiss button
+          if (onDismiss != null)
+            GestureDetector(
+              onTap: onDismiss,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.close, color: Colors.black38, size: 20),
+              ),
+            ),
         ],
       ),
     );

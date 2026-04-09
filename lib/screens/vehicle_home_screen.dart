@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/user_model.dart';
 import '../models/vehicle_model.dart';
+import '../models/notification_model.dart';
 import 'add_vehicle_screen.dart';
 import 'notification_screen.dart';
 import 'profile_screen.dart';
@@ -35,8 +36,11 @@ class _VehicleHomeScreenState extends State<VehicleHomeScreen> {
     final uid = _authService.currentUser?.uid;
     if (uid == null) return;
 
+    // Seed service metadata (no-op if already exists)
+    _firestoreService.seedServiceMetaData();
+
     // Load user and vehicles independently
-    final userFuture = _authService.getUserData(uid).catchError((_) => null);
+    final userFuture = _authService.getUserData(uid).then<UserModel?>((u) => u).catchError((_) => null as UserModel?);
     final vehiclesFuture = _firestoreService.getVehiclesForOwnerOnce(uid).catchError((_) => <VehicleModel>[]);
 
     final results = await Future.wait([userFuture, vehiclesFuture]);
@@ -51,6 +55,9 @@ class _VehicleHomeScreenState extends State<VehicleHomeScreen> {
         serviceCount = await _firestoreService.getServiceRecordCountForVehicles(vehicleIds);
       } catch (_) {}
     }
+
+    // Check and generate notifications
+    _firestoreService.checkAndGenerateNotifications(uid);
 
     if (!mounted) return;
     setState(() {
@@ -113,14 +120,46 @@ class _VehicleHomeScreenState extends State<VehicleHomeScreen> {
                         ],
                       ),
                       const Spacer(),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                      StreamBuilder<List<NotificationModel>>(
+                        stream: _firestoreService.getNotificationsForUser(_authService.currentUser?.uid ?? ''),
+                        builder: (context, snapshot) {
+                          final notificationCount = snapshot.data?.length ?? 0;
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                              );
+                            },
+                            child: Stack(
+                              children: [
+                                const Icon(Icons.notifications_none, color: Colors.white, size: 28),
+                                if (notificationCount > 0)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.redAccent,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                      child: Text(
+                                        notificationCount > 99 ? '99+' : '$notificationCount',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           );
                         },
-                        child: const Icon(Icons.notifications_none, color: Colors.white, size: 28),
                       ),
                       const SizedBox(width: 16),
                       GestureDetector(
@@ -187,17 +226,43 @@ class _VehicleHomeScreenState extends State<VehicleHomeScreen> {
                       ),
                     )
                   else
-                    ..._vehicles.map((vehicle) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: VehicleCard(
-                        vehicleId: vehicle.id,
-                        title: vehicle.displayName,
-                        subId: vehicle.modelNumber,
-                        vehicleType: vehicle.vehicleType,
-                        lastServiceDate: '-',
-                        nextServiceStatus: '-',
-                      ),
-                    )),
+                    ..._vehicles.map((vehicle) {
+                      final lastDate = vehicle.lastServiceDate.isNotEmpty
+                          ? VehicleModel.formatDateForDisplay(vehicle.lastServiceDate)
+                          : '-';
+                      String nextStatus = '-';
+                      bool isOverdue = false;
+                      if (vehicle.nextServiceDate.isNotEmpty && vehicle.nextServiceDate.length == 8) {
+                        final nextDate = DateTime.tryParse(
+                          '${vehicle.nextServiceDate.substring(0, 4)}-${vehicle.nextServiceDate.substring(4, 6)}-${vehicle.nextServiceDate.substring(6, 8)}',
+                        );
+                        if (nextDate != null) {
+                          final now = DateTime.now();
+                          final diff = nextDate.difference(DateTime(now.year, now.month, now.day)).inDays;
+                          if (diff < 0) {
+                            nextStatus = 'Overdue';
+                            isOverdue = true;
+                          } else if (diff == 0) {
+                            nextStatus = 'Due Today';
+                            isOverdue = true;
+                          } else {
+                            nextStatus = VehicleModel.formatDateForDisplay(vehicle.nextServiceDate);
+                          }
+                        }
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: VehicleCard(
+                          vehicleId: vehicle.id,
+                          title: vehicle.displayName,
+                          subId: vehicle.modelNumber,
+                          vehicleType: vehicle.vehicleType,
+                          lastServiceDate: lastDate,
+                          nextServiceStatus: nextStatus,
+                          isOverdue: isOverdue,
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 100), // Reserve space for FAB/scrolling
                 ],
               ),

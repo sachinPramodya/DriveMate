@@ -5,6 +5,7 @@ import '../widgets/custom_text_field.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/service_record_model.dart';
+import '../models/service_metadata_model.dart';
 
 class MaintenanceHistoryScreen extends StatefulWidget {
   final String vehicleId;
@@ -116,6 +117,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
     final mileageController = TextEditingController();
     final costController = TextEditingController();
     final notesController = TextEditingController();
+    DateTime? selectedDate;
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -128,6 +130,35 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Future<void> pickDate() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: selectedDate ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.light(
+                        primary: Color(0xFF345880),
+                        onPrimary: Colors.white,
+                        surface: Colors.white,
+                        onSurface: Colors.black,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  selectedDate = picked;
+                  dateController.text =
+                      '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                });
+              }
+            }
+
             return Padding(
               padding: EdgeInsets.only(
                 left: 24,
@@ -166,14 +197,20 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                       controller: titleController,
                     ),
                     const SizedBox(height: 16),
-                    CustomTextField(
-                      hintText: 'Date (YYYY-MM-DD)',
-                      icon: Icons.calendar_today_outlined,
-                      controller: dateController,
+                    GestureDetector(
+                      onTap: pickDate,
+                      child: AbsorbPointer(
+                        child: CustomTextField(
+                          hintText: 'Service Date',
+                          icon: Icons.calendar_today_outlined,
+                          controller: dateController,
+                          suffixIcon: const Icon(Icons.date_range, color: Colors.black54),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     CustomTextField(
-                      hintText: 'Mileage',
+                      hintText: 'Current Mileage (Km)',
                       icon: Icons.speed_outlined,
                       controller: mileageController,
                       keyboardType: TextInputType.number,
@@ -204,6 +241,15 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                                 );
                                 return;
                               }
+                              if (selectedDate == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please select a service date'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                                return;
+                              }
                               setDialogState(() => isSaving = true);
                               try {
                                 final record = ServiceRecordModel(
@@ -216,6 +262,53 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                                   notes: notesController.text.trim(),
                                 );
                                 await _firestoreService.addServiceRecord(record);
+
+                                // Calculate lastServiceDate in YYYYMMDD
+                                final lastServiceDate =
+                                    '${selectedDate!.year}${selectedDate!.month.toString().padLeft(2, '0')}${selectedDate!.day.toString().padLeft(2, '0')}';
+
+                                // Calculate nextServiceDate
+                                String nextServiceDate = '';
+                                final vehicle = await _firestoreService.getVehicleById(widget.vehicleId);
+                                if (vehicle != null) {
+                                  final avgDaily = double.tryParse(vehicle.averageDailyMileage) ?? 0;
+                                  if (avgDaily > 0) {
+                                    // Get service metadata for this vehicle type
+                                    ServiceMetaDataModel? meta;
+                                    if (vehicle.vehicleType.isNotEmpty) {
+                                      meta = await _firestoreService.getServiceMetaData(vehicle.vehicleType);
+                                    }
+                                    meta ??= ServiceMetaDataModel.defaults[vehicle.vehicleType] ??
+                                        ServiceMetaDataModel(vehicleType: '', regularServiceKm: 5000, tyreChangeKm: 40000, oilChangeKm: 5000);
+
+                                    final serviceIntervalKm = meta.getIntervalForServiceType(titleController.text.trim());
+                                    final daysUntilNext = (serviceIntervalKm / avgDaily).ceil();
+                                    final nextDate = selectedDate!.add(Duration(days: daysUntilNext));
+                                    nextServiceDate =
+                                        '${nextDate.year}${nextDate.month.toString().padLeft(2, '0')}${nextDate.day.toString().padLeft(2, '0')}';
+                                  }
+
+                                  // Update vehicle with new dates and mileage
+                                  await _firestoreService.updateVehicleServiceDates(
+                                    vehicleId: widget.vehicleId,
+                                    lastServiceDate: lastServiceDate,
+                                    nextServiceDate: nextServiceDate.isNotEmpty ? nextServiceDate : vehicle.nextServiceDate,
+                                    mileage: mileageController.text.trim().isNotEmpty
+                                        ? mileageController.text.trim()
+                                        : vehicle.mileage,
+                                  );
+
+                                  // Regenerate notifications
+                                  if (nextServiceDate.isNotEmpty) {
+                                    await _firestoreService.regenerateNotificationsForVehicle(
+                                      vehicleId: widget.vehicleId,
+                                      ownerId: vehicle.ownerId,
+                                      vehicleName: vehicle.displayName,
+                                      nextServiceDate: nextServiceDate,
+                                    );
+                                  }
+                                }
+
                                 if (context.mounted) Navigator.of(context).pop();
                               } catch (e) {
                                 setDialogState(() => isSaving = false);

@@ -17,6 +17,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _brandController = TextEditingController();
   final _yearController = TextEditingController();
   final _mileageController = TextEditingController();
+  final _avgDailyMileageController = TextEditingController();
   String _vehicleType = '';
   bool _isLoading = false;
   final AuthService _authService = AuthService();
@@ -30,6 +31,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _brandController.dispose();
     _yearController.dispose();
     _mileageController.dispose();
+    _avgDailyMileageController.dispose();
     super.dispose();
   }
 
@@ -51,6 +53,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         brand: _brandController.text.trim(),
         year: _yearController.text.trim(),
         mileage: _mileageController.text.trim(),
+        averageDailyMileage: _avgDailyMileageController.text.trim(),
       );
       await _firestoreService.addVehicle(vehicle);
       if (!mounted) return;
@@ -169,6 +172,22 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 icon: Icons.speed_outlined,
                 controller: _mileageController,
                 keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 24),
+              
+              CustomTextField(
+                hintText: 'Average Daily Mileage (Km)',
+                icon: Icons.trending_up_outlined,
+                controller: _avgDailyMileageController,
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Used to calculate next service date',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: Colors.black38,
+                ),
               ),
               const SizedBox(height: 48),
               

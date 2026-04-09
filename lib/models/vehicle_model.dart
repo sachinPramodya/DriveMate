@@ -8,6 +8,9 @@ class VehicleModel {
   final String brand;
   final String year;
   final String mileage;
+  final String averageDailyMileage;
+  final String lastServiceDate; // YYYYMMDD
+  final String nextServiceDate; // YYYYMMDD
   final DateTime? createdAt;
 
   VehicleModel({
@@ -18,6 +21,9 @@ class VehicleModel {
     this.brand = '',
     this.year = '',
     this.mileage = '',
+    this.averageDailyMileage = '',
+    this.lastServiceDate = '',
+    this.nextServiceDate = '',
     this.createdAt,
   });
 
@@ -31,6 +37,9 @@ class VehicleModel {
       brand: data['brand'] ?? '',
       year: data['year'] ?? '',
       mileage: data['mileage'] ?? '',
+      averageDailyMileage: data['averageDailyMileage'] ?? '',
+      lastServiceDate: data['lastServiceDate'] ?? '',
+      nextServiceDate: data['nextServiceDate'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -43,9 +52,18 @@ class VehicleModel {
       'brand': brand,
       'year': year,
       'mileage': mileage,
+      'averageDailyMileage': averageDailyMileage,
+      'lastServiceDate': lastServiceDate,
+      'nextServiceDate': nextServiceDate,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
   String get displayName => '$year $brand $modelNumber'.trim();
+
+  /// Format YYYYMMDD string to YYYY-MM-DD for display
+  static String formatDateForDisplay(String yyyymmdd) {
+    if (yyyymmdd.length != 8) return yyyymmdd;
+    return '${yyyymmdd.substring(0, 4)}-${yyyymmdd.substring(4, 6)}-${yyyymmdd.substring(6, 8)}';
+  }
 }
